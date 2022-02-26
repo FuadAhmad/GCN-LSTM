@@ -28,7 +28,7 @@ Optionally can install jupyter notebook to run on jupyter-lab.
 
 Step-2:
 
-Open cmd prompt and navigate to the root folder of the downloaded project where “requirements.txt” exists.
+Open terminal/cmd prompt and navigate to the root folder of the downloaded project where “requirements.txt” exists.
 Now execute this command:
 pip install -r requirements.txt
 It will install all the dependencies with the proper version.
@@ -36,10 +36,10 @@ It will install all the dependencies with the proper version.
 Note 1:
 For some cases, you might be required to execute this command before proceeding to the earlier cmd:
 pip install wheel
-If you are using Anaconda or any other kind of python environment where pip cmd is not available then make sure to install the dependencies with the proper version listed in requirements.txt
+If you are using Anaconda or any other kind of python environment where pip cmd is not available then make sure to install the dependencies with the proper version listed in requirements.txt.
 
 Step-3:
-Once all dependencies installed,navigate to the extracted project's root directory where main.py exist.
+Once all dependencies installed,navigate to the extracted project's root directory.
 Then you can lunch the project using cmd:jupyter-lab
 In jupyter-lab, from the folder directory in models folder, open any .ipynb file then read commented instructions and execute kernels/cells.
 
