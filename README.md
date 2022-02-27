@@ -39,7 +39,10 @@ pip install wheel
 If you are using Anaconda or any other kind of python environment where pip cmd is not available then make sure to install the dependencies with the proper version listed in requirements.txt.
 
 Step-3:
-Once all dependencies installed,navigate to the extracted project's root directory.
-Then you can lunch the project using cmd:jupyter-lab
-In jupyter-lab, from the folder directory in models folder, open any .ipynb file then read commented instructions and execute kernels/cells.
+Once all dependencies installed,navigate to the extracted project's root directory then navigate to the models folder.
+Then You can run any model file using cmd:
+python model-file-name.py (such as: python gcn_lstm_model.py)
 
+
+Note 2:
+For some cases, you may need to set/modify the dataset path in the model files.
