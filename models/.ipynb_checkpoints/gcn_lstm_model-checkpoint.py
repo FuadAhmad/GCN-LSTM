@@ -140,24 +140,6 @@ def GetGraphAdjMtrx(squareMtx, thresolds, keep_weights=False): #Apply Thresolds 
         graphs.append(m)#np.array(r))  
     return graphs[0]
 
-
-def get_adj_mat(c, th=0, keep_weights=True):
-  #print("Creating graph with th: ", th)
-  n = c.shape[0]
-  a = np.zeros((n,n))
-  for i in range(n):
-    for j in range(n):
-      #print("before:", c[i,j])
-      if(c[i,j]>th):
-        if(keep_weights):
-          a[i,j] = c[i,j]
-          a[j,i] = c[j,i]
-        else:
-          a[i,j] = 1
-          a[j,i] = 1
-      #print("after:", a[i,j])
-  return a
-
 def get_edge_index_weight_tensor(adj):
   num_nodes = adj.shape[0]
   source_nodes_ids, target_nodes_ids, edge_weights = [], [], []
@@ -293,66 +275,11 @@ SEQUENCE_EMB_DIMS = 128 #16 #4 #128 #number of timestamps #change from ex 1 #cha
 NUM_CLASSES = 4 #2 binary classification
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-
-model = MVTS_GCN_RNN(NUM_NODES, INPUT_DIMS, NUM_TEMPORAL_SPLIT, device, GCN_HIDDEN_DIMS, NODE_EMB_DIMS, GRAPH_EMB_DIMS, WINDOW_EMB_DIMS, SEQUENCE_EMB_DIMS, NUM_CLASSES).to(device).double()
-loss_function = nn.NLLLoss()
-#optimizer = optim.SGD(model.parameters(), lr=0.01) #change from ex 10
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
-
-
-"""**Functions addition + modification**"""
-def get_model():
+def get_model_params():
     model = MVTS_GCN_RNN(NUM_NODES, INPUT_DIMS, NUM_TEMPORAL_SPLIT, device, GCN_HIDDEN_DIMS, NODE_EMB_DIMS, GRAPH_EMB_DIMS, WINDOW_EMB_DIMS, SEQUENCE_EMB_DIMS, NUM_CLASSES).to(device).double()
     loss_function = nn.NLLLoss()
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-4, weight_decay=1e-3)
-    return model
-
-# RunEpochs get_accuracy trian test acc
-def RunEpochs(model, train_adjs, train_nats, ytrain, num_epochs = 1, print_loss_interval = 5): 
-  for epoch in range(num_epochs):
-    for i in range(train_adjs.shape[0]):#num_train
-      model.zero_grad()
-
-      class_scores = model(train_adjs[i], train_nats[i]) 
-      #target = [y_train[i]]
-      target = torch.from_numpy(np.array([y_train[i]]))
-      target = target.to(device)
-      loss = loss_function(class_scores, target)
-      loss.backward()
-      optimizer.step()
-    if(epoch % print_loss_interval == 0):
-      print ("loss: ", loss)
-
-#------------------------------train acc
-def get_train_accuracy():
-  num_train = X_train.shape[0]
-  with torch.no_grad():
-    numCorrect = 0
-    for i in range(num_train):
-      train_class_scores = model(train_adjs[i], train_nats[i])
-      class_prediction = torch.argmax(train_class_scores, dim=-1) 
-  
-      if(class_prediction == y_train[i]): 
-        numCorrect = numCorrect + 1
-    return numCorrect/num_train
-
-
-#---------test acc
-def get_test_accuracy():
-  num_test = X_test.shape[0]
-  with torch.no_grad():
-    numCorrect = 0
-    for i in range(num_test):
-      test_class_scores = model(test_adjs[i], test_nats[i]) #(adj_mat_array, node_att_array)
-      class_prediction = torch.argmax(test_class_scores, dim=-1) 
-      
-      if(class_prediction == y_test[i]): 
-        numCorrect = numCorrect + 1
-    return numCorrect/num_test
-
-def get_accuracy():
-  print ("train_accuracy:", get_train_accuracy())
-  print ("test_accuracy: ", get_test_accuracy())
+    return model, loss_function, optimizer
 
 
 from sklearn import metrics
@@ -360,37 +287,47 @@ from sklearn.metrics import classification_report
 from sklearn.metrics import accuracy_score, confusion_matrix, adjusted_rand_score
 
 def get_accuracy_report_by_running_epochs(Xtrain, ytrain, Xtest, ytest, epochs, epoch_interval):
-  num_train = Xtrain.shape[0]
-  num_test = Xtest.shape[0]
-  train_adjs, train_nats = get_adjs_nats(Xtrain, num_temporal_split = NUM_TEMPORAL_SPLIT, th = 0)
-  test_adjs, test_nats = get_adjs_nats(Xtest, num_temporal_split = NUM_TEMPORAL_SPLIT, th = 0)
-  
-  model = get_model()
-  maxAcc=0
-  max_classification_report_dict=0
-  max_acc_epoch = 0
+    numTrain = Xtrain.shape[0]
+    numTest = Xtest.shape[0]
+    trainAdjs, trainNats = get_adjs_nats(Xtrain, num_temporal_split = NUM_TEMPORAL_SPLIT, th = 0)
+    testAdjs, testNats = get_adjs_nats(Xtest, num_temporal_split = NUM_TEMPORAL_SPLIT, th = 0)
 
-  for epoch in range(epoch_interval, epochs, epoch_interval):
-    print("current epoch: ", epoch)
-    RunEpochs(model,  train_adjs, train_nats, ytrain, num_epochs = epoch_interval, print_loss_interval = 300)
-    
-    #get_accuracy()
+    model, loss_function, optimizer = get_model_params()
+    maxAcc=0
+    max_classification_report_dict=0
+    max_acc_epoch = 0
+
+    for epoch in range(epochs):
+        for i in range(numTrain):#num_train
+            model.zero_grad()
+
+            class_scores = model(trainAdjs[i], trainNats[i]) 
+            #target = [y_train[i]]
+            target = torch.from_numpy(np.array([ytrain[i]]))
+            target = target.to(device)
+            loss = loss_function(class_scores, target)
+            loss.backward()
+            optimizer.step()
+        if(epoch % epoch_interval == 0):
+            print ("epoch: ", epoch+1, "   loss: ", loss)
+#------train finished--------------------------------
+
+#get_accuracy()
     with torch.no_grad():
-      numCorrect = 0
-      predictaedLabel=[]
-      for i in range(num_test):
-        test_class_scores = model(test_adjs[i], test_nats[i]) #(adj_mat_array, node_att_array)
-        class_prediction = torch.argmax(test_class_scores, dim=-1) 
-        predictaedLabel.append(class_prediction[0])
-        if(class_prediction == ytest[i]): 
-          numCorrect = numCorrect + 1
-      acc = numCorrect/num_test
-      if acc  > maxAcc: #fgdg=round(acc, 2)
-        maxAcc=acc
-        max_acc_epoch = epoch
-        max_classification_report_dict=metrics.classification_report(y_test, predictaedLabel, digits=3,output_dict=True)
-
-  return maxAcc, max_acc_epoch, max_classification_report_dict
+        numCorrect = 0
+        predictaedLabel=[]
+        for i in range(numTest):
+            test_class_scores = model(testAdjs[i], testNats[i]) #(adj_mat_array, node_att_array)
+            class_prediction = torch.argmax(test_class_scores, dim=-1) 
+            predictaedLabel.append(class_prediction[0])
+            if(class_prediction == ytest[i]): 
+                numCorrect = numCorrect + 1
+        acc = numCorrect/numTest
+        if acc  > maxAcc: #fgdg=round(acc, 2)
+            maxAcc=acc
+            max_acc_epoch = epoch
+            max_classification_report_dict=metrics.classification_report(y_test, predictaedLabel, digits=3,output_dict=True)
+    return maxAcc, max_acc_epoch, max_classification_report_dict
 
 def doClassSpecificCalulcation(classification_report_dict, y_test):
     
@@ -431,19 +368,13 @@ def doClassSpecificCalulcation(classification_report_dict, y_test):
     print(np.round(np.mean(recall),2),"+-",np.round(np.std(recall),2) )
     print(np.round(np.mean(f1_score),2),"+-",np.round(np.std(f1_score),2) )
     
-def get_predictions_report(Xtrain, ytrain, Xtest, ytest):
+def get_predictions_report(Xtrain, ytrain, Xtest, ytest, epochs, epoch_interval):
     
-    maxAcc, max_acc_epoch, report_dict = get_accuracy_report_by_running_epochs(Xtrain, ytrain, Xtest, ytest, epochs = 1 + 1, epoch_interval = 1)
+    maxAcc, max_acc_epoch, report_dict = get_accuracy_report_by_running_epochs(Xtrain, ytrain, Xtest, ytest, epochs = epochs, epoch_interval = epoch_interval)
+    print('maxAcc: ', maxAcc, "  max_acc_epoch:", max_acc_epoch) 
     return report_dict
 
 
-
-num_train = X_train.shape[0]
-num_test = X_test.shape[0]
-train_adjs = []
-train_nats = []
-test_adjs = []
-test_nats = []
 # run only once per experiment(5 differeent random_state of train_test_data_split)
 classification_report_dict=[]
 for i in range(0,5):
@@ -457,7 +388,7 @@ for i in range(0,5):
     X_train = transform_scale_data(X_train, scaler)
     X_test = transform_scale_data(X_test, scaler)
 
-    report_dict = get_predictions_report(X_train, y_train, X_test, y_test)
+    report_dict = get_predictions_report(X_train, y_train, X_test, y_test, epochs = 70 + 1, epoch_interval = 10)
     classification_report_dict.append(report_dict)
     
 #run for each random data state
@@ -468,43 +399,65 @@ for i in range(0,5):
 
 doClassSpecificCalulcation(classification_report_dict, y_test)
 
+
+
 """t-SNE"""
-
-# Before t-SNE representation, train the model for 100 epochs
-
 import matplotlib.pyplot as plt
-import matplotlib.patheffects as PathEffects
-# %matplotlib inline
-
 import seaborn as sns
 from sklearn.manifold import TSNE
-from numpy import save
 
-num_train = X_train.shape[0]
-train_softs = np.zeros((num_train, 4))
-with torch.no_grad():
-  numCorrect = 0
-  for i in range(num_train):
-    train_class_scores = model(train_adjs[i], train_nats[i])
-    train_softs[i] = train_class_scores.flatten()
+def show_tsne_representation(train_tsne, y):
+    xe1 = train_tsne[:,0]
+    xe2 = train_tsne[:,1]
+
+    df = pd.DataFrame({'t-SNE dimension 1':xe1, 't-SNE dimension 2':xe2, 'Class':y})
+    df = df.sort_values(by=['Class'], ascending=True)
+
+    legend_map = {0: 'X',
+                  1: 'M',
+                  2: 'BC',
+                  3: 'Q'}
+    fig = plt.figure(figsize=(11, 11))
+    sns.set(font_scale=2)
+    ax = sns.scatterplot(df['t-SNE dimension 1'], df['t-SNE dimension 2'], hue=df['Class'].map(legend_map), 
+                         palette=['red', 'orange', 'blue', 'green'], legend='full')
+    plt.show()
     
-train_tsne = TSNE(random_state=0).fit_transform(train_softs)
+def get_all_train_softs_by_running_epochs(Xtrain, ytrain, epochs, epoch_interval):
+    numTrain = Xtrain.shape[0]
+    trainAdjs, trainNats = get_adjs_nats(Xtrain, num_temporal_split = NUM_TEMPORAL_SPLIT, th = 0)
+    model, loss_function, optimizer = get_model_params()
+    for epoch in range(epochs):
+        for i in range(numTrain):#num_train
+            model.zero_grad()
+            class_scores = model(trainAdjs[i], trainNats[i]) 
+            target = torch.from_numpy(np.array([ytrain[i]]))
+            target = target.to(device)
+            loss = loss_function(class_scores, target)
+            loss.backward()
+            optimizer.step()
+        if(epoch % epoch_interval == 0):
+            print ("epoch: ", epoch+1, "   loss: ", loss)
 
-xe1 = train_tsne[:,0]
-xe2 = train_tsne[:,1]
-y = y_train
+    train_softs = np.zeros((numTrain, 4))
+    with torch.no_grad():
+        for i in range(numTrain):
+            train_class_scores = model(trainAdjs[i], trainNats[i])
+            train_softs[i] = train_class_scores.flatten()     
+    return train_softs
 
-df = pd.DataFrame({'t-SNE dimension 1':xe1, 't-SNE dimension 2':xe2, 'Class':y})
-df = df.sort_values(by=['Class'], ascending=True)
+def run_tsne():
+    print("running for t-SNE...") 
+    trans = GetTransposed2D(mvts_1540)
+    data2d = Make2D(trans)
+    scaler = GetStandardScaler(data2d)
+    all_train = transform_scale_data(mvts_1540, scaler)
 
-legend_map = {0: 'X',
-              1: 'M',
-              2: 'BC',
-              3: 'Q'}
-fig = plt.figure(figsize=(11, 11))
-sns.set(font_scale=2)
-ax = sns.scatterplot(df['t-SNE dimension 1'], df['t-SNE dimension 2'], hue=df['Class'].map(legend_map), 
-                     palette=['red', 'orange', 'blue', 'green'], legend='full')
-plt.show()
-img_file = 'all_tsne.pdf'
-fig.savefig(img_file, dpi=fig.dpi)
+    # Before t-SNE representation, train the model for 100 epochs
+    train_softs = get_all_train_softs_by_running_epochs(all_train, labels_1540, epochs = 100, epoch_interval = 10)
+
+    train_tsne = TSNE(random_state=0).fit_transform(train_softs)
+
+    show_tsne_representation(train_tsne, labels_1540)
+
+run_tsne()
