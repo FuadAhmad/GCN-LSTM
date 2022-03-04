@@ -43,6 +43,11 @@ Once all dependencies installed,navigate to the extracted project's root directo
 Then You can run any model file using cmd:
 python model-file-name.py (such as: python gcn_lstm_model.py)
 
-
 Note 2:
 For some cases, you may need to set/modify the dataset path in the model files.
+
+
+## Visualizing embeddings using t-SNE
+To investigate the quality of learned MVTS representations, we provide a visualization of t-SNE transformed MVTS representations extracted by the final layer of the GCN-LSTM model.
+<img width="852" alt="Screenshot 2022-03-03 at 11 48 48 PM" src="https://user-images.githubusercontent.com/11091318/156713767-5c6cc63e-c77e-4c04-ad89-3194b165d70d.png">
+
